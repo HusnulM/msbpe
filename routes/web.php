@@ -55,6 +55,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('/stock',      'InbalController@stock');
         Route::post('/stock',     'InbalController@saveInbalStock');
     });
+
+    Route::get('/resetqtypbj',                'Transaksi\PbjController@resetRealizedPBJ');
 });
 
 Route::get('logs', [\Rap2hpoutre\LaravelLogViewer\LogViewerController::class, 'index']);
