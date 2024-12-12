@@ -2,6 +2,52 @@
 
 use Illuminate\Support\Facades\DB;
 
+function resetPBJNotRealized(){
+    DB::beginTransaction();
+    try{
+        $pbjN = DB::table('v_check_pbj')
+                ->where('realized_qty', '>', '0')->get();
+        foreach($pbjN as $row){
+            $check = DB::table('t_inv02')
+                     ->where('wonum', $row->pbjnumber)
+                     ->where('woitem', $row->pbjitem)
+                     ->first();
+            if(!$check){
+                DB::table('t_pbj02')
+                ->where('pbjnumber', $row->pbjnumber)
+                ->where('pbjitem', $row->pbjitem)
+                ->update([
+                    'realized_qty' => 0
+                ]);
+                DB::commit();
+            }
+        }
+        // DB::select('call spPBJNotRealized()');
+        // DB::commit();
+
+        $result = array(
+            'msgtype' => '200',
+            'message' => 'Reset Realized PBJ Success'
+        );
+        return $result;
+    }catch(\Exception $e){
+        DB::rollBack();
+        $result = array(
+            'msgtype' => '400',
+            'message' => $e->getMessage()
+        );
+        return $result;
+    }
+}
+
+function setExcelRows($row){
+    $totalBaris = $row;
+    return $totalBaris;
+}
+
+function getExcelRows(){
+    return $totalBaris;
+}
 
 function userMenu(){
     $mnGroups = DB::table('v_usermenus')
