@@ -37,6 +37,16 @@ class StockOpnamController extends Controller
                 'qty1' => number_format($query->quantity,0)
             ];
         })
+        ->editColumn('unit_price', function ($query){
+            return [
+                'uprice' => number_format($query->unit_price,0)
+            ];
+        })
+        ->editColumn('total_price', function ($query){
+            return [
+                'total' => number_format($query->total_price,0)
+            ];
+        })
         ->toJson();
     }
 

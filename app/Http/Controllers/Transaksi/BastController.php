@@ -84,6 +84,7 @@ class BastController extends Controller
     }
 
     public function save(Request $req){
+        $this->resetQtyPBJ($req);
         // return $req;
         DB::beginTransaction();
         try{
@@ -260,7 +261,7 @@ class BastController extends Controller
                             'no_bast'      => $bastNumber,
                             'material'     => $parts[$i],
                             'matdesc'      => $partdsc[$i],
-                            'quantity'     => $qty,
+                            'quantity'     => $inputQty,
                             'unit'         => $uom[$i],
                             'refdoc'       => $pbjnum[$i] ?? 0,
                             'refdocitem'   => $pbjitm[$i] ?? 0,
@@ -276,7 +277,7 @@ class BastController extends Controller
                         DB::select('call spIssueMaterialWithBatchFIFO2(
                             "'. $matCode .'",
                             "'. $warehouseID .'",
-                            "'. $qty .'",
+                            "'. $inputQty .'",
                             "'. $ptaNumber .'",
                             "'. date('Y') .'",
                             "201",
@@ -622,6 +623,35 @@ class BastController extends Controller
         //     );
         //     return $result;
         // }
+    }
+
+    function resetQtyPBJ($req)
+    {
+        $pbjnum   = $req['pbjnumber'];
+        $pbjitm   = $req['pbjitem'];
+
+        for($i = 0; $i < sizeof($pbjnum); $i++){
+            $pbjN = DB::table('v_check_pbj')
+                    ->where('realized_qty', '>', '0')
+                    ->where('pbjnumber', $pbjnum[$i])
+                    ->where('pbjitem', $pbjitm[$i])
+                    ->get();
+            foreach($pbjN as $row){
+                $check = DB::table('t_inv02')
+                        ->where('wonum', $row->pbjnumber)
+                        ->where('woitem', $row->pbjitem)
+                        ->first();
+                if(!$check){
+                    DB::table('t_pbj02')
+                    ->where('pbjnumber', $row->pbjnumber)
+                    ->where('pbjitem', $row->pbjitem)
+                    ->update([
+                        'realized_qty' => 0
+                    ]);
+                    DB::commit();
+                }
+            }
+        }
     }
 
     function mysql_escape_mimic($inp) {

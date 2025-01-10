@@ -281,8 +281,18 @@
                     },
                     {data: "diffqty", className: 'uid', "className": "text-right"},
                     {data: "matunit", className: 'uid'},
-                    {data: "unit_price", className: 'uid', "className": "text-right"},
-                    {data: "total_price", className: 'uid', "className": "text-right"},
+                    {data: "unit_price", className: 'uid', "className": "text-right",
+                        render: function (data, type, row){
+                            return ``+ row.unit_price.uprice + ``;
+                        },
+                        "className": "text-right"
+                    },
+                    {data: "total_price", className: 'uid', "className": "text-right",
+                        render: function (data, type, row){
+                            return ``+ row.total_price.total + ``;
+                        },
+                        "className": "text-right"
+                    },
                 ]
             }).columns.adjust().draw();
         }
