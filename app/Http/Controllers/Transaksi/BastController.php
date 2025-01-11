@@ -294,7 +294,7 @@ class BastController extends Controller
                             ->where('pbjnumber', $pbjnum[$i])
                             ->where('pbjitem', $pbjitm[$i])->first();
 
-                        $relQty = $pbjitem->realized_qty + $qty;
+                        $relQty = $pbjitem->realized_qty + $inputQty;
                         if((int)$relQty >= (int)$pbjitem->quantity){
                             DB::table('t_pbj02')->where('pbjnumber', $pbjnum[$i])->where('pbjitem', $pbjitm[$i])
                             ->update([
@@ -360,6 +360,7 @@ class BastController extends Controller
 
         } catch(\Exception $e){
             DB::rollBack();
+            // dd($e);
             $result = array(
                 'msgtype' => '400',
                 'message' => $e->getMessage()

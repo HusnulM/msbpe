@@ -1156,127 +1156,76 @@ function generateVendorCode(){
     }
 }
 
-function sendPurchaseOrder($poNumber){
+function generateNextNumber($prefix, $object, $tahun, $bulan, $tgl){
+    $dcnNumber = $prefix.'/'.$tahun.$bulan;
+    // dd('A');
+    $getdata = DB::table('t_nriv_budget')
+    ->where('object',   $object)
+    ->where('tahun',    $tahun)
+    ->where('bulan',    $bulan)
+    ->where('tanggal',  $tgl)
+    ->first();
 
-    $poheader = DB::table('t_po01')->where('ponum', $poNumber)->first();
-    $vendor   = DB::table('t_vendor')->where('vendor_code', $poheader->vendor)->first();
-    $poitem   = DB::table('t_po02')->where('ponum', $poNumber)->where('approvestat', 'A')->get();
+    if($getdata){
+        // dd($getdata);
+        DB::beginTransaction();
+        try{
+            $leadingZero = '';
+            if(strlen($getdata->lastnumber) == 5){
+                $leadingZero = '0';
+            }elseif(strlen($getdata->lastnumber) == 4){
+                $leadingZero = '00';
+            }elseif(strlen($getdata->lastnumber) == 3){
+                $leadingZero = '000';
+            }elseif(strlen($getdata->lastnumber) == 2){
+                $leadingZero = '0000';
+            }elseif(strlen($getdata->lastnumber) == 1){
+                $leadingZero = '00000';
+            }
 
-    $prNumber      = DB::table('t_po02')->where('ponum', $poheader->ponum)->pluck('prnum');
-    $pbjNumber     = DB::table('t_pr02')->whereIn('prnum', $prNumber)->pluck('pbjnumber');
+            $lastnum = ($getdata->lastnumber*1) + 1;
 
-    $pbjData       = DB::table('t_pbj01')->whereIn('pbjnumber', $pbjNumber)->first();
+            if($leadingZero == ''){
+                $dcnNumber = $dcnNumber. $lastnum;
+            }else{
+                $dcnNumber = $dcnNumber . $leadingZero . $lastnum;
+            }
 
-    $attachments = DB::table('v_attachments')
-                    ->select('fileurl')
-                    // ->whereIn('doc_object', ['PO','PR', 'PBJ'])
-                    ->where('doc_number', $poheader->ponum)
-                    ->orWhereIn('doc_number', $prNumber)
-                    ->orWhereIn('doc_number', $pbjNumber)
-                    ->pluck('fileurl');
+            DB::table('t_nriv_budget')
+            ->where('tahun',  $tahun)
+            ->where('object', $object)
+            ->where('bulan',  $bulan)
+            ->update([
+                'lastnumber' => $lastnum
+            ]);
 
-    // $prAttachments = DB::table('v_attachments')
-    //                 ->select('fileurl')
-    //                 ->where('doc_object','PR')
-    //                 ->whereIn('doc_number', $prNumber)->pluck('fileurl');
-
-    // $pbjAttachments = DB::table('v_attachments')
-    //                 ->select('fileurl')
-    //                 ->where('doc_object','PBJ')
-    //                 ->whereIn('doc_number', $pbjNumber)->pluck('fileurl');
-
-    // $attachments = $prAttachments;
-    // array_push($attachments, $pbjAttachments);
-
-    // return $attachments;
-
-    $sendData   = array();
-    $insertData = array();
-    foreach($poitem as $row){
-        $idProject = 0;
-        $project = DB::table('t_projects')->where('idproject', $row->idproject)->first();
-        if(!$project){
-            $idProject = 0;
-        }else{
-            $idProject = $project->kode_project;
+            DB::commit();
+            // dd($dcnNumber);
+            return $dcnNumber;
+        }catch(\Exception $e){
+            DB::rollBack();
+            return null;
         }
-        $insert = array(
-            "proyek_id"     => $idProject,
-            "item_desk"     => $row->matdesc. '. '. $row->quantity . $row->unit . ' @'.$row->price,
-            "item_payee"    => $vendor->vendor_id,
-            "item_curr"     => "IDR",
-            "pretax_rp"     => $row->price*$row->quantity,
-            "PPN"           => $poheader->ppn,
-            "item_rp"       => ($row->price*$row->quantity)+(($row->price*$row->quantity)*($poheader->ppn/100)),
-            "oleh"          => $row->createdby,
-            "dept"          => $poheader->deptid,
-            "budget"        => $row->budget_code,
-            "budget_period" => $row->budget_period ?? "",
-            "catatan"       => $pbjData->tujuan_permintaan ?? $poheader->note,
-            "item_rek"      => $vendor->vendor_id, //$vendor->no_rek, Pak ada sedikit update untuk array yang dikirim pak
-            "item_bank"     => $vendor->vendor_id, //$vendor->bank, Item_bank dan item_rek disamakan dengan item_payee pak
-            "periode"       => date('Y'),
-            "no_po"         => $row->ponum,
-            "attachment"    => $attachments
-        );
-        array_push($sendData, $insert);
-
-        $submitData = array(
-            'ponum'    => $row->ponum,
-            'poitem'   => $row->poitem,
-            'material' => $row->material,
-            'matdesc'  => $row->matdesc,
-            'quantity' => $row->quantity,
-            'unit'     => $row->unit,
-            'submitdate' => getLocalDatabaseDateTime(),
-            'submitby'   => Auth::user()->username
-        );
-        array_push($insertData, $submitData);
+    }else{
+        $dcnNumber = $dcnNumber.'000001';
+        DB::beginTransaction();
+        try{
+            DB::table('t_nriv_budget')->insert([
+                'object'          => $object,
+                'tahun'           => $tahun,
+                'bulan'           => $bulan,
+                'tanggal'         => $tgl,
+                // 'deptid'          => $dept,
+                'lastnumber'      => '1',
+                'createdon'       => date('Y-m-d H:m:s'),
+                'createdby'       => Auth::user()->email ?? Auth::user()->username
+            ]);
+            DB::commit();
+            return $dcnNumber;
+        }catch(\Exception $e){
+            DB::rollBack();
+            dd($e);
+            return null;
+        }
     }
-
-    // return $sendData;
-
-    $apikey  = 'B807C072-05ADCCE0-C1C82376-3EC92EF1';
-    $url     = 'https://mahakaryabangunpersada.com/api/v1/submit/po';
-    $get_api = mbpAPI($url, $apikey, $sendData);
-
-    $response = json_decode($get_api, true);
-    // return $response;
-    $status   = $response['status'];
-    $pesan    = $response['status_message'];
-    $datajson = $response['data'];
-    if(str_contains($datajson,'Succeed')){
-        insertOrUpdate($insertData,'t_log_submit_api');
-        DB::table('t_po01')->where('ponum', $poNumber)->update([
-            'submitted' => 'Y'
-        ]);
-    }
-    return $response;
-}
-
-function mbpAPI($url, $apikey, $data=array()){
-    $debugfileh = tmpfile();
-    $curl       = curl_init();
-    curl_setopt($curl, CURLOPT_POST, 1);
-    if ($data) curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data) );
-
-    curl_setopt($curl, CURLOPT_URL, $url);
-    curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-        'APIKEY: '.$apikey,
-        'Content-Type: application/json',
-    ));
-    // curl_setopt($curl, CURLOPT_VERBOSE, 1);
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-
-    $result = curl_exec($curl);
-    if(!$result){die("Connection Failure");}
-    curl_close($curl);
-    return $result;
-    // try{
-    // }finally{
-    //     var_dump('curl verbose log:',file_get_contents(stream_get_meta_data($debugfileh)['uri']));
-    //     fclose($debugfileh);
-    //     // curl_close($curl);
-    // }
 }

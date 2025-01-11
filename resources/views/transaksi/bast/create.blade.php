@@ -38,10 +38,10 @@
                         <div class="row">
                             <div class="col-lg-2 col-md-12">
                                 <div class="row">
-                                    <div class="col-lg-12 col-md-12">
+                                    <div class="col-lg-12 col-md-12" style="display: none;">
                                         <div class="form-group">
                                             <label for="nomorbast">Nomor BAST</label>
-                                            <input type="text" name="nomorbast" class="form-control" required>
+                                            <input type="text" name="nomorbast" class="form-control">
                                             <input type="hidden" name="pbjID" value="{{ $pbjheader->id }}">
                                         </div>
                                     </div>
